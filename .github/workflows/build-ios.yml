@@ -1,0 +1,50 @@
+name: Build iOS (Archive)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ "master" ]
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Ruby & install fastlane
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '2.7'
+      - run: gem install fastlane
+
+      - name: Import signing certs
+        uses: apple-actions/import-codesign-certs@v1
+        with:
+          p12-file-base64: ${{ secrets.IOS_CERT_BASE64 }}
+          p12-password: ${{ secrets.IOS_CERT_PASSWORD }}
+
+      - name: Import provisioning profile
+        uses: apple-actions/import-provisioning-profile@v1
+        with:
+          provisioning-profile-base64: ${{ secrets.PROFILE_BASE64 }}
+
+      - name: Build archive
+        run: |
+          xcodebuild -project ios-pwnagotchi.xcodeproj \
+            -scheme "ios-pwnagotchi" \
+            -configuration Release \
+            -archivePath $PWD/build/Pwnagotchi.xcarchive archive
+
+      - name: Export IPA
+        run: |
+          xcodebuild -exportArchive \
+            -archivePath $PWD/build/Pwnagotchi.xcarchive \
+            -exportOptionsPlist ExportOptions.plist \
+            -exportPath $PWD/build/export
+
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: pwnagotchi-ipa
+          path: build/export/*.ipa
