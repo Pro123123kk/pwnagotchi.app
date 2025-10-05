@@ -2,7 +2,7 @@ name: Build iOS App
 
 on:
   push:
-    branches: [ master ]
+    branches: [ main ]
   workflow_dispatch:
 
 jobs:
@@ -11,51 +11,47 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
 
       - name: Set up Xcode
-        run: sudo xcode-select -s /Applications/Xcode.app
+        run: sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
 
       # Import signing certificate (.p12)
       - name: Import signing certificate
         uses: apple-actions/import-codesign-certs@v1
         with:
-          p12-file-base64: ${{ secrets.P12_CERTIFICATE }}
-          p12-password: ${{ secrets.P12_PASSWORD }}
+          p12-file-base64: ${{ secrets.P12_BASE64 }}
+          p12-password: "1"
 
-      # Manually install provisioning profile (.mobileprovision)
+      # Install provisioning profile (.mobileprovision)
       - name: Install provisioning profile
-        run: |
-          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
-          echo "${{ secrets.PROVISIONING_PROFILE }}" | base64 --decode > ~/Library/MobileDevice/Provisioning\ Profiles/profile.mobileprovision
+        uses: apple-actions/import-provisioning-profile@v1
+        with:
+          profile-base64: ${{ secrets.PROVISIONING_PROFILE_BASE64 }}
 
       - name: Install dependencies (CocoaPods)
         run: |
           gem install cocoapods
-          pod install --repo-update
-        working-directory: ios-pwnagotchi
+          pod install --repo-update || true
 
       - name: Build iOS app (Debug)
         run: |
-          xcodebuild \
-            -project ios-pwnagotchi/ios-pwnagotchi.xcodeproj \
-            -scheme ios-pwnagotchi \
-            -sdk iphoneos \
-            -configuration Debug \
-            CODE_SIGN_IDENTITY="Apple Distribution" \
-            DEVELOPMENT_TEAM=${{ secrets.APPLE_TEAM_ID }} \
-            PROVISIONING_PROFILE_SPECIFIER=""
+          xcodebuild -workspace pwnagotchi.app.xcworkspace \
+          -scheme pwnagotchi.app \
+          -sdk iphoneos \
+          -configuration Debug \
+          archive -archivePath $PWD/build/pwnagotchi.xcarchive
 
       - name: Export .ipa
         run: |
-          mkdir -p output
           xcodebuild -exportArchive \
-            -archivePath ios-pwnagotchi/build/ios-pwnagotchi.xcarchive \
-            -exportPath output \
-            -exportOptionsPlist ios-pwnagotchi/exportOptions.plist
+          -archivePath $PWD/build/pwnagotchi.xcarchive \
+          -exportOptionsPlist ExportOptions.plist \
+          -exportPath $PWD/build
 
-      - name: Upload .ipa artifact
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ios-build
-          path: output/*.ipa
+          name: pwnagotchi-ios-build
+          path: build/*.ipa
+
