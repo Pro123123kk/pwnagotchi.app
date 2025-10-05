@@ -1,12 +1,12 @@
 workflows:
   build_ios_app:
-    name: Build iOS app (no signing)
+    name: Build iOS app (no signing, skip watch targets)
     max_build_duration: 60
     instance_type: mac_mini_m2
     environment:
       vars:
         XCODE_PROJECT: "ios-pwnagotchi.xcodeproj"
-        XCODE_SCHEME: "ios-pwnagotchi WatchKit App"
+        XCODE_SCHEME: "ios-pwnagotchi"
         BUILD_CONFIGURATION: "Release"
       xcode: 15.4
     scripts:
@@ -14,7 +14,7 @@ workflows:
         script: |
           rm -rf build || true
 
-      - name: Build iOS app
+      - name: Build iPhone app only
         script: |
           xcodebuild \
             -project "$XCODE_PROJECT" \
@@ -25,16 +25,20 @@ workflows:
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO \
             build \
-            CONFIGURATION_BUILD_DIR=$CM_BUILD_DIR/build
+            CONFIGURATION_BUILD_DIR=$CM_BUILD_DIR/build \
+            ONLY_ACTIVE_ARCH=YES \
+            EXCLUDED_ARCHS="arm64 armv7 armv7s" \
+            -destination 'generic/platform=iOS'
 
-      - name: Package .app as artifact
+      - name: Package .app
         script: |
           mkdir -p $CM_BUILD_DIR/artifacts
           cp -r $CM_BUILD_DIR/build/*.app $CM_BUILD_DIR/artifacts/
+
     artifacts:
       - artifacts/*.app
+
     publishing:
       email:
         recipients:
           - your@email.com
-
