@@ -26,7 +26,7 @@ jobs:
             echo "No Podfile found, skipping pod install"
           fi
 
-      - name: Build iOS App (no signing)
+      - name: Build iOS App (unsigned)
         run: |
           xcodebuild -project "ios-pwnagotchi.xcodeproj" \
             -scheme "ios-pwnagotchi" \
