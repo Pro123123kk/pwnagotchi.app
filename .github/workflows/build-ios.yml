@@ -1,10 +1,7 @@
-name: Build iOS App
+name: Build iOS App (Unsigned)
 
 on:
-  workflow_dispatch:
-  push:
-    branches:
-      - main
+  workflow_dispatch: # Cho phép bấm "Run workflow" thủ công
 
 jobs:
   build:
@@ -39,7 +36,7 @@ jobs:
           zip -r ios-pwnagotchi.ipa Payload
           ls -lh ios-pwnagotchi.ipa
 
-      - name: Upload IPA artifact
+      - name: Upload .ipa
         uses: actions/upload-artifact@v4
         with:
           name: ios-pwnagotchi
