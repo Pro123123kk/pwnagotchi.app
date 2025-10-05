@@ -1,44 +1,40 @@
-name: Build iOS IPA
+workflows:
+  build_ios_app:
+    name: Build iOS app (no signing)
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    environment:
+      vars:
+        XCODE_PROJECT: "ios-pwnagotchi.xcodeproj"
+        XCODE_SCHEME: "ios-pwnagotchi WatchKit App"
+        BUILD_CONFIGURATION: "Release"
+      xcode: 15.4
+    scripts:
+      - name: Clean previous build
+        script: |
+          rm -rf build || true
 
-on:
-  workflow_dispatch:
-
-jobs:
-  build:
-    runs-on: macos-latest
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up Xcode
-        run: sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
-
-      - name: List available schemes
-        run: xcodebuild -list -project "ios-pwnagotchi.xcodeproj"
-
-      - name: Build unsigned iOS app
-        run: |
+      - name: Build iOS app
+        script: |
           xcodebuild \
-            -project "ios-pwnagotchi.xcodeproj" \
-            -scheme "ios-pwnagotchi WatchKit App" \
+            -project "$XCODE_PROJECT" \
+            -scheme "$XCODE_SCHEME" \
+            -configuration "$BUILD_CONFIGURATION" \
             -sdk iphoneos \
-            -configuration Release \
-            clean build \
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO \
-            CONFIGURATION_BUILD_DIR=$PWD/build
+            build \
+            CONFIGURATION_BUILD_DIR=$CM_BUILD_DIR/build
 
-      - name: Create IPA
-        run: |
-          mkdir -p Payload
-          cp -r build/*.app Payload/
-          zip -r ios-pwnagotchi.ipa Payload
-          rm -rf Payload
+      - name: Package .app as artifact
+        script: |
+          mkdir -p $CM_BUILD_DIR/artifacts
+          cp -r $CM_BUILD_DIR/build/*.app $CM_BUILD_DIR/artifacts/
+    artifacts:
+      - artifacts/*.app
+    publishing:
+      email:
+        recipients:
+          - your@email.com
 
-      - name: Upload IPA artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: ios-pwnagotchi.ipa
-          path: ios-pwnagotchi.ipa
