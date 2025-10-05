@@ -1,10 +1,10 @@
-name: Build iOS IPA
+name: Build iOS App
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - main
-  workflow_dispatch:
 
 jobs:
   build:
@@ -15,20 +15,14 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up Xcode
-        run: sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
-
-      - name: Install CocoaPods (if needed)
         run: |
-          if [ -f "Podfile" ]; then
-            sudo gem install cocoapods
-            pod install
-          else
-            echo "No Podfile found, skipping pod install"
-          fi
+          sudo xcode-select -s /Applications/Xcode.app
+          xcodebuild -version
 
-      - name: Build iOS App (unsigned)
+      - name: Build unsigned iOS app
         run: |
-          xcodebuild -project "ios-pwnagotchi.xcodeproj" \
+          xcodebuild \
+            -project "ios-pwnagotchi.xcodeproj" \
             -scheme "ios-pwnagotchi" \
             -sdk iphoneos \
             -configuration Release \
@@ -38,15 +32,15 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             CONFIGURATION_BUILD_DIR=$PWD/build
 
-      - name: Package IPA
+      - name: Package .ipa
         run: |
           mkdir -p Payload
-          cp -R build/ios-pwnagotchi.app Payload/
+          cp -r build/*.app Payload/
           zip -r ios-pwnagotchi.ipa Payload
-          rm -rf Payload
+          ls -lh ios-pwnagotchi.ipa
 
       - name: Upload IPA artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ios-pwnagotchi-ipa
+          name: ios-pwnagotchi
           path: ios-pwnagotchi.ipa
