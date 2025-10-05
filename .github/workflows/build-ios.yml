@@ -1,50 +1,56 @@
-name: Build iOS (Archive)
+name: Build iOS App
 
 on:
-  workflow_dispatch:
   push:
-    branches: [ "master" ]
+    branches: [ main ]
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: macos-latest
+
     steps:
-      - name: Checkout code
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Ruby & install fastlane
-        uses: ruby/setup-ruby@v1
-        with:
-          ruby-version: '2.7'
-      - run: gem install fastlane
+      - name: Set up Xcode
+        run: sudo xcode-select -s /Applications/Xcode.app
 
-      - name: Import signing certs
+      - name: Decode and import signing certificate
         uses: apple-actions/import-codesign-certs@v1
         with:
-          p12-file-base64: ${{ secrets.IOS_CERT_BASE64 }}
-          p12-password: ${{ secrets.IOS_CERT_PASSWORD }}
+          p12-file-base64: ${{ secrets.P12_CERTIFICATE }}
+          p12-password: ${{ secrets.P12_PASSWORD }}
+          provisioning-profile-base64: ${{ secrets.PROVISIONING_PROFILE }}
 
-      - name: Import provisioning profile
-        uses: apple-actions/import-provisioning-profile@v1
-        with:
-          provisioning-profile-base64: ${{ secrets.PROFILE_BASE64 }}
-
-      - name: Build archive
+      - name: Install dependencies (CocoaPods)
         run: |
-          xcodebuild -project ios-pwnagotchi.xcodeproj \
-            -scheme "ios-pwnagotchi" \
-            -configuration Release \
-            -archivePath $PWD/build/Pwnagotchi.xcarchive archive
+          gem install cocoapods
+          pod install --repo-update
+        working-directory: ios
 
-      - name: Export IPA
+      - name: Build iOS app (Debug)
         run: |
+          xcodebuild \
+            -workspace ios/Runner.xcworkspace \
+            -scheme Runner \
+            -sdk iphoneos \
+            -configuration Debug \
+            clean build \
+            CODE_SIGN_IDENTITY="Apple Distribution" \
+            DEVELOPMENT_TEAM=${{ secrets.APPLE_TEAM_ID }} \
+            PROVISIONING_PROFILE_SPECIFIER=""
+
+      - name: Export .ipa
+        run: |
+          mkdir -p output
           xcodebuild -exportArchive \
-            -archivePath $PWD/build/Pwnagotchi.xcarchive \
-            -exportOptionsPlist ExportOptions.plist \
-            -exportPath $PWD/build/export
+            -archivePath ios/build/Runner.xcarchive \
+            -exportPath output \
+            -exportOptionsPlist ios/exportOptions.plist
 
-      - name: Upload IPA
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: pwnagotchi-ipa
-          path: build/export/*.ipa
+          name: ios-app
+          path: output/*.ipa
