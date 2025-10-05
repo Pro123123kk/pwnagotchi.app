@@ -2,7 +2,7 @@ name: Build iOS App
 
 on:
   push:
-    branches: [ main ]
+    branches: [ master ]
   workflow_dispatch:
 
 jobs:
@@ -16,27 +16,32 @@ jobs:
       - name: Set up Xcode
         run: sudo xcode-select -s /Applications/Xcode.app
 
-      - name: Decode and import signing certificate
+      # Import signing certificate (.p12)
+      - name: Import signing certificate (.p12)
         uses: apple-actions/import-codesign-certs@v1
         with:
           p12-file-base64: ${{ secrets.P12_CERTIFICATE }}
           p12-password: ${{ secrets.P12_PASSWORD }}
+
+      # Import provisioning profile (.mobileprovision)
+      - name: Import provisioning profile
+        uses: apple-actions/import-provisioning-profile@v1
+        with:
           provisioning-profile-base64: ${{ secrets.PROVISIONING_PROFILE }}
 
       - name: Install dependencies (CocoaPods)
         run: |
           gem install cocoapods
           pod install --repo-update
-        working-directory: ios
+        working-directory: ios-pwnagotchi
 
       - name: Build iOS app (Debug)
         run: |
           xcodebuild \
-            -workspace ios/Runner.xcworkspace \
-            -scheme Runner \
+            -project ios-pwnagotchi/ios-pwnagotchi.xcodeproj \
+            -scheme ios-pwnagotchi \
             -sdk iphoneos \
             -configuration Debug \
-            clean build \
             CODE_SIGN_IDENTITY="Apple Distribution" \
             DEVELOPMENT_TEAM=${{ secrets.APPLE_TEAM_ID }} \
             PROVISIONING_PROFILE_SPECIFIER=""
@@ -45,12 +50,12 @@ jobs:
         run: |
           mkdir -p output
           xcodebuild -exportArchive \
-            -archivePath ios/build/Runner.xcarchive \
+            -archivePath ios-pwnagotchi/build/ios-pwnagotchi.xcarchive \
             -exportPath output \
-            -exportOptionsPlist ios/exportOptions.plist
+            -exportOptionsPlist ios-pwnagotchi/exportOptions.plist
 
-      - name: Upload artifact
+      - name: Upload .ipa artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ios-app
+          name: ios-build
           path: output/*.ipa
