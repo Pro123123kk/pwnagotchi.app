@@ -1,4 +1,4 @@
-name: Build iOS App
+name: Build Unsigned iOS IPA
 
 on:
   push:
@@ -10,54 +10,35 @@ jobs:
     runs-on: macos-latest
 
     steps:
-      # 1️⃣ Lấy code từ GitHub
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      # 2️⃣ Chọn bản Xcode mặc định
       - name: Set up Xcode
         run: sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
 
-      # 3️⃣ Import chứng chỉ ký app (.p12)
-      - name: Import signing certificate
-        uses: apple-actions/import-codesign-certs@v1
-        with:
-          p12-file-base64: ${{ secrets.P12_BASE64 }}
-          p12-password: "1"
-
-      # 4️⃣ Cài provisioning profile (.mobileprovision)
-      - name: Install provisioning profile
+      - name: Install dependencies (CocoaPods)
         run: |
-          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
-          echo "${{ secrets.PROVISIONING_PROFILE_BASE64 }}" | base64 --decode > ~/Library/MobileDevice/Provisioning\ Profiles/profile.mobileprovision
+          gem install cocoapods
+          pod install --repo-update || true
 
-      # 5️⃣ Kiểm tra cấu trúc dự án
-      - name: Check project structure
-        run: find . -maxdepth 2 -name "*.xcodeproj" -or -name "*.xcworkspace"
-
-      # 6️⃣ Build iOS app (Debug)
-      - name: Build iOS app (Debug)
+      - name: Build .ipa (unsigned)
         run: |
-          xcodebuild \
-            -project pwnagotchi.xcodeproj \
-            -scheme pwnagotchi \
-            -sdk iphoneos \
-            -configuration Debug \
-            archive -archivePath $PWD/build/pwnagotchi.xcarchive \
-            CODE_SIGN_STYLE=Manual
+          xcodebuild -workspace pwnagotchi.app.xcworkspace \
+          -scheme pwnagotchi.app \
+          -sdk iphoneos \
+          -configuration Release \
+          clean build \
+          CONFIGURATION_BUILD_DIR=$PWD/build
 
-      # 7️⃣ Xuất file .ipa
-      - name: Export .ipa
+      - name: Package .ipa
         run: |
-          xcodebuild -exportArchive \
-            -archivePath $PWD/build/pwnagotchi.xcarchive \
-            -exportOptionsPlist ExportOptions.plist \
-            -exportPath $PWD/build
+          mkdir -p Payload
+          cp -r build/pwnagotchi.app Payload/
+          zip -r pwnagotchi.ipa Payload
+          rm -rf Payload
 
-      # 8️⃣ Upload file .ipa (tải từ tab Artifacts)
-      - name: Upload artifact
+      - name: Upload .ipa
         uses: actions/upload-artifact@v4
         with:
-          name: pwnagotchi-ios-build
-          path: build/*.ipa
-
+          name: pwnagotchi-ios-unsigned
+          path: pwnagotchi.ipa
