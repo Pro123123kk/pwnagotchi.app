@@ -1,7 +1,7 @@
-name: Build iOS App (Unsigned)
+name: Build iOS IPA
 
 on:
-  workflow_dispatch: # Cho phép bấm "Run workflow" thủ công
+  workflow_dispatch:
 
 jobs:
   build:
@@ -12,15 +12,16 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up Xcode
-        run: |
-          sudo xcode-select -s /Applications/Xcode.app
-          xcodebuild -version
+        run: sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+
+      - name: List available schemes
+        run: xcodebuild -list -project "ios-pwnagotchi.xcodeproj"
 
       - name: Build unsigned iOS app
         run: |
           xcodebuild \
             -project "ios-pwnagotchi.xcodeproj" \
-            -scheme "ios-pwnagotchi" \
+            -scheme "ios-pwnagotchi WatchKit App" \
             -sdk iphoneos \
             -configuration Release \
             clean build \
@@ -29,15 +30,15 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             CONFIGURATION_BUILD_DIR=$PWD/build
 
-      - name: Package .ipa
+      - name: Create IPA
         run: |
           mkdir -p Payload
           cp -r build/*.app Payload/
           zip -r ios-pwnagotchi.ipa Payload
-          ls -lh ios-pwnagotchi.ipa
+          rm -rf Payload
 
-      - name: Upload .ipa
+      - name: Upload IPA artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ios-pwnagotchi
+          name: ios-pwnagotchi.ipa
           path: ios-pwnagotchi.ipa
